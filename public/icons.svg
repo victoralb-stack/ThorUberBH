@@ -1,0 +1,40 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
+
+export default defineConfig({
+  plugins: [
+    react(),
+
+    VitePWA({
+      registerType: 'autoUpdate',
+
+      includeAssets: [
+        'icons.svg',
+      ],
+
+      manifest: {
+        name: 'ThorUberBH',
+        short_name: 'ThorUberBH',
+
+        description:
+          'Aplicativo para acompanhamento de desempenho como motorista de aplicativos.',
+
+        theme_color: '#2563eb',
+        background_color: '#f4f6f8',
+
+        display: 'standalone',
+        start_url: '/',
+
+        icons: [
+          {
+            src: '/icons.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable',
+          },
+        ],
+      },
+    }),
+  ],
+})
