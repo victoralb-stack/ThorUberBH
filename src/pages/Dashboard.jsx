@@ -1,82 +1,162 @@
 import { useState } from 'react'
 
-function Dashboard({ jornadas }) {
-  const [periodo, setPeriodo] = useState('tudo')
-  const [app, setApp] = useState('todos')
+function obterDataLocalAtual() {
+  const agora = new Date()
 
-  const precoCombustivel = Number(
-    localStorage.getItem(
-      'thoruberbh-combustivel'
-    ) || 6
+  const ano = agora.getFullYear()
+  const mes = String(
+    agora.getMonth() + 1
+  ).padStart(2, '0')
+  const dia = String(
+    agora.getDate()
+  ).padStart(2, '0')
+
+  return `${ano}-${mes}-${dia}`
+}
+
+function criarDataLocal(dataTexto) {
+  const [ano, mes, dia] = dataTexto
+    .split('-')
+    .map(Number)
+
+  return new Date(ano, mes - 1, dia)
+}
+
+function formatarTempo(horasDecimais) {
+  const minutosTotais = Math.round(
+    horasDecimais * 60
   )
 
-  const jornadasFiltradas = jornadas.filter((jornada) => {
-    const data = new Date(jornada.data)
-    const hoje = new Date()
+  const horas = Math.floor(
+    minutosTotais / 60
+  )
 
-    if (periodo === 'hoje') {
-      return data.toDateString() === hoje.toDateString()
-    }
+  const minutos = minutosTotais % 60
 
-    if (periodo === 'semana') {
-      const diferencaMs =
-        hoje.getTime() - data.getTime()
+  return `${horas}h ${String(minutos).padStart(2, '0')}min`
+}
 
-      const diferencaDias =
-        diferencaMs /
-        (1000 * 60 * 60 * 24)
+function Dashboard({ jornadas }) {
+  const [periodo, setPeriodo] =
+    useState('tudo')
 
-      return diferencaDias <= 7
-    }
+  const [dataEspecifica, setDataEspecifica] =
+    useState(obterDataLocalAtual())
 
-    if (periodo === 'mes') {
-      return (
-        data.getMonth() ===
-          hoje.getMonth() &&
-        data.getFullYear() ===
+  const jornadasFiltradas = jornadas.filter(
+    (jornada) => {
+      if (!jornada.data) {
+        return false
+      }
+
+      const data = criarDataLocal(jornada.data)
+      const hoje = criarDataLocal(
+        obterDataLocalAtual()
+      )
+
+      if (periodo === 'data') {
+        return jornada.data === dataEspecifica
+      }
+
+      if (periodo === 'semana') {
+        const inicioHoje = new Date(
+          hoje.getFullYear(),
+          hoje.getMonth(),
+          hoje.getDate()
+        )
+
+        const inicioJornada = new Date(
+          data.getFullYear(),
+          data.getMonth(),
+          data.getDate()
+        )
+
+        const diferencaMs =
+          inicioHoje.getTime() -
+          inicioJornada.getTime()
+
+        const diferencaDias = Math.floor(
+          diferencaMs /
+            (1000 * 60 * 60 * 24)
+        )
+
+        return (
+          diferencaDias >= 0 &&
+          diferencaDias <= 6
+        )
+      }
+
+      if (periodo === 'mes') {
+        return (
+          data.getMonth() ===
+            hoje.getMonth() &&
+          data.getFullYear() ===
+            hoje.getFullYear()
+        )
+      }
+
+      if (periodo === 'ano') {
+        return (
+          data.getFullYear() ===
           hoje.getFullYear()
-      )
-    }
+        )
+      }
 
-    if (periodo === 'ano') {
-      return (
-        data.getFullYear() ===
-        hoje.getFullYear()
-      )
+      return true
     }
-
-    return true
-  })
+  )
 
   let receitaTotal = 0
   let totalCorridas = 0
   let totalHoras = 0
   let totalKm = 0
   let totalConsumo = 0
+  let quantidadeConsumosValidos = 0
+  let custoCombustivel = 0
 
   jornadasFiltradas.forEach((jornada) => {
-    if (app === 'uber') {
-      receitaTotal += jornada.uberReceita
-      totalCorridas += jornada.uberCorridas
-    } else if (app === '99') {
-      receitaTotal +=
-        jornada.noventa9Receita
+    const uberReceita =
+      Number(jornada.uberReceita) || 0
 
-      totalCorridas +=
-        jornada.noventa9Corridas
-    } else {
-      receitaTotal +=
-        jornada.uberReceita +
-        jornada.noventa9Receita
+    const noventa9Receita =
+      Number(jornada.noventa9Receita) || 0
 
-      totalCorridas +=
-        jornada.uberCorridas +
-        jornada.noventa9Corridas
+    const uberCorridas =
+      Number(jornada.uberCorridas) || 0
+
+    const noventa9Corridas =
+      Number(jornada.noventa9Corridas) || 0
+
+    const horas = Number(jornada.horas) || 0
+    const km = Number(jornada.km) || 0
+    const consumo =
+      Number(jornada.consumo) || 0
+
+    const precoCombustivel =
+      Number(jornada.precoCombustivel) ||
+      Number(
+        localStorage.getItem(
+          'thoruberbh-combustivel'
+        ) || 6
+      )
+
+    receitaTotal +=
+      uberReceita + noventa9Receita
+
+    totalCorridas +=
+      uberCorridas + noventa9Corridas
+
+    totalHoras += horas
+    totalKm += km
+
+    if (consumo > 0) {
+      totalConsumo += consumo
+      quantidadeConsumosValidos += 1
+
+      custoCombustivel +=
+        (km / consumo) *
+        precoCombustivel
     }
-
-    totalHoras += jornada.horas
-    totalKm += jornada.km
-    totalConsumo += jornada.consumo
   })
 
   const reaisPorHora =
@@ -90,19 +170,10 @@ function Dashboard({ jornadas }) {
       : 0
 
   const consumoMedio =
-    jornadasFiltradas.length > 0
+    quantidadeConsumosValidos > 0
       ? totalConsumo /
-        jornadasFiltradas.length
+        quantidadeConsumosValidos
       : 0
-
-  const litrosConsumidos =
-    consumoMedio > 0
-      ? totalKm / consumoMedio
-      : 0
-
-  const custoCombustivel =
-    litrosConsumidos *
-    precoCombustivel
 
   const reservaManutencao =
     receitaTotal * 0.1
@@ -116,10 +187,15 @@ function Dashboard({ jornadas }) {
     jornadasFiltradas.length > 0
       ? Math.max(
           ...jornadasFiltradas.map(
-            (j) =>
-              j.uberReceita +
-              j.noventa9Receita
-          )
+            (jornada) =>
+              (Number(
+                jornada.uberReceita
+              ) || 0) +
+              (Number(
+                jornada.noventa9Receita
+              ) || 0)
+          ),
+          1
         )
       : 1
 
@@ -136,20 +212,20 @@ function Dashboard({ jornadas }) {
             setPeriodo(e.target.value)
           }
         >
-          <option value="hoje">
-            Hoje
+          <option value="data">
+            Data específica
           </option>
 
           <option value="semana">
-            Semana
+            Últimos 7 dias
           </option>
 
           <option value="mes">
-            Mês
+            Mês atual
           </option>
 
           <option value="ano">
-            Ano
+            Ano atual
           </option>
 
           <option value="tudo">
@@ -157,26 +233,21 @@ function Dashboard({ jornadas }) {
           </option>
         </select>
 
-        <label>Aplicativo</label>
+        {periodo === 'data' && (
+          <>
+            <label>Escolha a data</label>
 
-        <select
-          value={app}
-          onChange={(e) =>
-            setApp(e.target.value)
-          }
-        >
-          <option value="todos">
-            Todos
-          </option>
-
-          <option value="uber">
-            Uber
-          </option>
-
-          <option value="99">
-            99
-          </option>
-        </select>
+            <input
+              type="date"
+              value={dataEspecifica}
+              onChange={(e) =>
+                setDataEspecifica(
+                  e.target.value
+                )
+              }
+            />
+          </>
+        )}
       </div>
 
       <div className="cards">
@@ -195,60 +266,10 @@ function Dashboard({ jornadas }) {
         </div>
 
         <div className="card">
-          <h3>Lucro Estimado</h3>
-
-          <div className="kpi-value">
-            {lucroEstimado.toLocaleString(
-              'pt-BR',
-              {
-                style: 'currency',
-                currency: 'BRL',
-              }
-            )}
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>⛽ Combustível</h3>
-
-          <div className="kpi-value">
-            {custoCombustivel.toLocaleString(
-              'pt-BR',
-              {
-                style: 'currency',
-                currency: 'BRL',
-              }
-            )}
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>🔧 Reserva</h3>
-
-          <div className="kpi-value">
-            {reservaManutencao.toLocaleString(
-              'pt-BR',
-              {
-                style: 'currency',
-                currency: 'BRL',
-              }
-            )}
-          </div>
-        </div>
-
-        <div className="card">
           <h3>Corridas</h3>
 
           <div className="kpi-value">
             {totalCorridas}
-          </div>
-        </div>
-
-        <div className="card">
-          <h3>Horas</h3>
-
-          <div className="kpi-value">
-            {totalHoras.toFixed(1)}h
           </div>
         </div>
 
@@ -281,6 +302,56 @@ function Dashboard({ jornadas }) {
         </div>
 
         <div className="card">
+          <h3>⛽ Combustível</h3>
+
+          <div className="kpi-value">
+            {custoCombustivel.toLocaleString(
+              'pt-BR',
+              {
+                style: 'currency',
+                currency: 'BRL',
+              }
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Horas</h3>
+
+          <div className="kpi-value">
+            {formatarTempo(totalHoras)}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Lucro Estimado</h3>
+
+          <div className="kpi-value">
+            {lucroEstimado.toLocaleString(
+              'pt-BR',
+              {
+                style: 'currency',
+                currency: 'BRL',
+              }
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>🔧 Reserva</h3>
+
+          <div className="kpi-value">
+            {reservaManutencao.toLocaleString(
+              'pt-BR',
+              {
+                style: 'currency',
+                currency: 'BRL',
+              }
+            )}
+          </div>
+        </div>
+
+        <div className="card">
           <h3>Consumo Médio</h3>
 
           <div className="kpi-value">
@@ -293,39 +364,57 @@ function Dashboard({ jornadas }) {
         className="card"
         style={{ marginTop: '20px' }}
       >
-        <h3>
-          📈 Receita por Dia
-        </h3>
+        <h3>📈 Receita por Dia</h3>
+
+        {jornadasFiltradas.length === 0 && (
+          <p>
+            Nenhuma jornada encontrada neste período.
+          </p>
+        )}
 
         {jornadasFiltradas
           .slice()
-          .reverse()
+          .sort((a, b) =>
+            a.data.localeCompare(b.data)
+          )
           .map((jornada) => {
+            const uberReceita =
+              Number(
+                jornada.uberReceita
+              ) || 0
+
+            const noventa9Receita =
+              Number(
+                jornada.noventa9Receita
+              ) || 0
+
             const receitaTotalDia =
-              jornada.uberReceita +
-              jornada.noventa9Receita
+              uberReceita +
+              noventa9Receita
 
             const largura =
-              (receitaTotalDia /
-                receitaMaxima) *
-              100
+              receitaTotalDia > 0
+                ? (receitaTotalDia /
+                    receitaMaxima) *
+                  100
+                : 0
 
             const larguraUber =
               receitaTotalDia > 0
-                ? (jornada.uberReceita /
+                ? (uberReceita /
                     receitaTotalDia) *
                   100
                 : 0
 
             const largura99 =
               receitaTotalDia > 0
-                ? (jornada.noventa9Receita /
+                ? (noventa9Receita /
                     receitaTotalDia) *
                   100
                 : 0
 
-            const data =
-              new Date(
+            const dataFormatada =
+              criarDataLocal(
                 jornada.data
               ).toLocaleDateString(
                 'pt-BR',
@@ -351,17 +440,15 @@ function Dashboard({ jornadas }) {
                   }}
                 >
                   <strong>
-                    {data}
+                    {dataFormatada}
                   </strong>
 
                   <strong>
                     {receitaTotalDia.toLocaleString(
                       'pt-BR',
                       {
-                        style:
-                          'currency',
-                        currency:
-                          'BRL',
+                        style: 'currency',
+                        currency: 'BRL',
                       }
                     )}
                   </strong>
@@ -370,11 +457,16 @@ function Dashboard({ jornadas }) {
                 <div
                   style={{
                     width: `${largura}%`,
+                    minWidth:
+                      receitaTotalDia > 0
+                        ? '4px'
+                        : '0',
                     height: '22px',
                     display: 'flex',
                     overflow: 'hidden',
-                    borderRadius:
-                      '10px',
+                    borderRadius: '10px',
+                    background:
+                      '#e5e7eb',
                   }}
                 >
                   <div
@@ -399,32 +491,29 @@ function Dashboard({ jornadas }) {
                     display: 'flex',
                     justifyContent:
                       'space-between',
+                    gap: '10px',
                     marginTop: '6px',
                     fontSize: '12px',
                   }}
                 >
                   <span>
                     🟦 Uber:{' '}
-                    {jornada.uberReceita.toLocaleString(
+                    {uberReceita.toLocaleString(
                       'pt-BR',
                       {
-                        style:
-                          'currency',
-                        currency:
-                          'BRL',
+                        style: 'currency',
+                        currency: 'BRL',
                       }
                     )}
                   </span>
 
                   <span>
                     🟩 99:{' '}
-                    {jornada.noventa9Receita.toLocaleString(
+                    {noventa9Receita.toLocaleString(
                       'pt-BR',
                       {
-                        style:
-                          'currency',
-                        currency:
-                          'BRL',
+                        style: 'currency',
+                        currency: 'BRL',
                       }
                     )}
                   </span>
@@ -435,8 +524,7 @@ function Dashboard({ jornadas }) {
       </div>
 
       <p>
-        {jornadasFiltradas.length}{' '}
-        jornada(s)
+        {jornadasFiltradas.length} jornada(s)
       </p>
     </div>
   )

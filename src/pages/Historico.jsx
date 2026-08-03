@@ -1,41 +1,140 @@
+import { useState } from 'react'
+
+function criarDataLocal(dataTexto) {
+  const [ano, mes, dia] = dataTexto
+    .split('-')
+    .map(Number)
+
+  return new Date(ano, mes - 1, dia)
+}
+
+function formatarData(dataTexto) {
+  if (!dataTexto) {
+    return 'Data não informada'
+  }
+
+  return criarDataLocal(
+    dataTexto
+  ).toLocaleDateString(
+    'pt-BR',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    }
+  )
+}
+
+function formatarTempo(horasDecimais) {
+  const minutosTotais = Math.round(
+    (Number(horasDecimais) || 0) * 60
+  )
+
+  const horas = Math.floor(
+    minutosTotais / 60
+  )
+
+  const minutos = minutosTotais % 60
+
+  return `${horas}h ${String(minutos).padStart(2, '0')}min`
+}
+
 function Historico({
   jornadas,
   excluirJornada,
 }) {
-  function formatarData(dataTexto) {
-    const data = new Date(dataTexto)
+  const [app, setApp] =
+    useState('todos')
 
-    return data.toLocaleDateString(
-      'pt-BR',
-      {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-      }
+  function obterReceita(jornada) {
+    if (app === 'uber') {
+      return Number(
+        jornada.uberReceita
+      ) || 0
+    }
+
+    if (app === '99') {
+      return Number(
+        jornada.noventa9Receita
+      ) || 0
+    }
+
+    return (
+      (Number(
+        jornada.uberReceita
+      ) || 0) +
+      (Number(
+        jornada.noventa9Receita
+      ) || 0)
     )
   }
 
-  const precoCombustivel = Number(
-    localStorage.getItem(
-      'thoruberbh-combustivel'
-    ) || 6
-  )
+  function obterCorridas(jornada) {
+    if (app === 'uber') {
+      return Number(
+        jornada.uberCorridas
+      ) || 0
+    }
+
+    if (app === '99') {
+      return Number(
+        jornada.noventa9Corridas
+      ) || 0
+    }
+
+    return (
+      (Number(
+        jornada.uberCorridas
+      ) || 0) +
+      (Number(
+        jornada.noventa9Corridas
+      ) || 0)
+    )
+  }
+
+  const jornadasExibidas =
+    jornadas.filter((jornada) => {
+      if (app === 'uber') {
+        return (
+          (Number(
+            jornada.uberCorridas
+          ) || 0) > 0 ||
+          (Number(
+            jornada.uberReceita
+          ) || 0) > 0
+        )
+      }
+
+      if (app === '99') {
+        return (
+          (Number(
+            jornada.noventa9Corridas
+          ) || 0) > 0 ||
+          (Number(
+            jornada.noventa9Receita
+          ) || 0) > 0
+        )
+      }
+
+      return true
+    })
 
   let receitaTotalGeral = 0
   let corridasTotalGeral = 0
   let horasTotalGeral = 0
 
-  jornadas.forEach((jornada) => {
-    receitaTotalGeral +=
-      jornada.uberReceita +
-      jornada.noventa9Receita
+  jornadasExibidas.forEach(
+    (jornada) => {
+      receitaTotalGeral +=
+        obterReceita(jornada)
 
-    corridasTotalGeral +=
-      jornada.uberCorridas +
-      jornada.noventa9Corridas
+      corridasTotalGeral +=
+        obterCorridas(jornada)
 
-    horasTotalGeral += jornada.horas
-  })
+      horasTotalGeral +=
+        Number(jornada.horas) || 0
+    }
+  )
 
   const reaisPorHoraMedio =
     horasTotalGeral > 0
@@ -46,6 +145,29 @@ function Historico({
   return (
     <div>
       <h2>Histórico</h2>
+
+      <div className="card">
+        <label>Aplicativo</label>
+
+        <select
+          value={app}
+          onChange={(e) =>
+            setApp(e.target.value)
+          }
+        >
+          <option value="todos">
+            Todos
+          </option>
+
+          <option value="uber">
+            Uber
+          </option>
+
+          <option value="99">
+            99
+          </option>
+        </select>
+      </div>
 
       <div className="cards">
         <div className="card">
@@ -87,38 +209,56 @@ function Historico({
 
       <br />
 
-      {jornadas.length === 0 && (
-        <p>Nenhuma jornada cadastrada.</p>
+      {jornadasExibidas.length === 0 && (
+        <p>
+          Nenhuma jornada encontrada para este aplicativo.
+        </p>
       )}
 
-      {jornadas
+      {jornadasExibidas
         .slice()
-        .reverse()
+        .sort((a, b) =>
+          b.data.localeCompare(a.data)
+        )
         .map((jornada) => {
           const receitaTotal =
-            jornada.uberReceita +
-            jornada.noventa9Receita
+            obterReceita(jornada)
 
           const totalCorridas =
-            jornada.uberCorridas +
-            jornada.noventa9Corridas
+            obterCorridas(jornada)
+
+          const horas =
+            Number(jornada.horas) || 0
+
+          const km =
+            Number(jornada.km) || 0
+
+          const consumo =
+            Number(jornada.consumo) || 0
+
+          const precoCombustivel =
+            Number(
+              jornada.precoCombustivel
+            ) ||
+            Number(
+              localStorage.getItem(
+                'thoruberbh-combustivel'
+              ) || 6
+            )
 
           const reaisPorHora =
-            jornada.horas > 0
-              ? receitaTotal /
-                jornada.horas
+            horas > 0
+              ? receitaTotal / horas
               : 0
 
           const reaisPorKm =
-            jornada.km > 0
-              ? receitaTotal /
-                jornada.km
+            km > 0
+              ? receitaTotal / km
               : 0
 
           const litrosConsumidos =
-            jornada.consumo > 0
-              ? jornada.km /
-                jornada.consumo
+            consumo > 0
+              ? km / consumo
               : 0
 
           const custoCombustivel =
@@ -181,10 +321,10 @@ function Historico({
 
                 <div>
                   <strong>
-                    {jornada.horas.toFixed(1)}h
+                    {formatarTempo(horas)}
                   </strong>
 
-                  <p>Horas</p>
+                  <p>Tempo</p>
                 </div>
 
                 <div>
@@ -218,7 +358,9 @@ function Historico({
 
               <button
                 onClick={() =>
-                  excluirJornada(jornada.id)
+                  excluirJornada(
+                    jornada.id
+                  )
                 }
               >
                 Excluir Jornada

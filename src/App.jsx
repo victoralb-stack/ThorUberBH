@@ -11,14 +11,25 @@ function App() {
   const [tela, setTela] = useState('dashboard')
 
   const [jornadas, setJornadas] = useState(() => {
-    const jornadasSalvas =
-      localStorage.getItem('thoruberbh-jornadas')
+    const precoCombustivelAtual = Number(
+      localStorage.getItem('thoruberbh-combustivel') || 6
+    )
 
-    if (jornadasSalvas) {
-      return JSON.parse(jornadasSalvas)
-    }
+    const jornadasSalvas = localStorage.getItem(
+      'thoruberbh-jornadas'
+    )
 
-    return jornadasIniciais
+    const jornadasCarregadas = jornadasSalvas
+      ? JSON.parse(jornadasSalvas)
+      : jornadasIniciais
+
+    return jornadasCarregadas.map((jornada) => ({
+      ...jornada,
+      precoCombustivel:
+        Number(jornada.precoCombustivel) > 0
+          ? Number(jornada.precoCombustivel)
+          : precoCombustivelAtual,
+    }))
   })
 
   useEffect(() => {
@@ -29,8 +40,8 @@ function App() {
   }, [jornadas])
 
   function adicionarJornada(novaJornada) {
-    setJornadas([
-      ...jornadas,
+    setJornadas((jornadasAtuais) => [
+      ...jornadasAtuais,
       {
         ...novaJornada,
         id: Date.now(),
@@ -39,8 +50,8 @@ function App() {
   }
 
   function excluirJornada(id) {
-    setJornadas(
-      jornadas.filter(
+    setJornadas((jornadasAtuais) =>
+      jornadasAtuais.filter(
         (jornada) => jornada.id !== id
       )
     )
@@ -82,8 +93,7 @@ function App() {
         <h1>🚗 ThorUberBH</h1>
 
         <p>
-          Desempenho operacional para
-          motoristas de aplicativo
+          Desempenho operacional para motoristas de aplicativo
         </p>
       </header>
 
@@ -94,9 +104,7 @@ function App() {
               ? 'menu-active'
               : ''
           }
-          onClick={() =>
-            setTela('dashboard')
-          }
+          onClick={() => setTela('dashboard')}
         >
           📊 Dashboard
         </button>
@@ -107,9 +115,7 @@ function App() {
               ? 'menu-active'
               : ''
           }
-          onClick={() =>
-            setTela('historico')
-          }
+          onClick={() => setTela('historico')}
         >
           📋 Histórico
         </button>
@@ -120,9 +126,7 @@ function App() {
               ? 'menu-active'
               : ''
           }
-          onClick={() =>
-            setTela('jornada')
-          }
+          onClick={() => setTela('jornada')}
         >
           ➕ Jornada
         </button>
@@ -133,9 +137,7 @@ function App() {
               ? 'menu-active'
               : ''
           }
-          onClick={() =>
-            setTela('configuracoes')
-          }
+          onClick={() => setTela('configuracoes')}
         >
           ⚙️ Config
         </button>

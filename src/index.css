@@ -58,6 +58,14 @@ header p {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
+.card + .card {
+  margin-top: 14px;
+}
+
+.cards .card {
+  margin-top: 0;
+}
+
 .card h3 {
   margin-top: 0;
   color: #374151;
@@ -77,13 +85,32 @@ select {
   margin-bottom: 14px;
   border: 1px solid #d1d5db;
   border-radius: 12px;
+  background: #ffffff;
   font-size: 16px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #2563eb;
+  outline: 2px solid rgba(37, 99, 235, 0.15);
 }
 
 label {
   display: block;
   font-weight: 600;
   margin-bottom: 4px;
+}
+
+.campo-secundario {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.tempo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 button {
@@ -112,5 +139,9 @@ p {
 
   .menu {
     flex-wrap: wrap;
+  }
+
+  .tempo-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
