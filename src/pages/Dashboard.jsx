@@ -15,6 +15,10 @@ function obterDataLocalAtual() {
 }
 
 function criarDataLocal(dataTexto) {
+  if (!dataTexto) {
+    return null
+  }
+
   const [ano, mes, dia] = dataTexto
     .split('-')
     .map(Number)
@@ -24,7 +28,7 @@ function criarDataLocal(dataTexto) {
 
 function formatarTempo(horasDecimais) {
   const minutosTotais = Math.round(
-    horasDecimais * 60
+    (Number(horasDecimais) || 0) * 60
   )
 
   const horas = Math.floor(
@@ -36,6 +40,59 @@ function formatarTempo(horasDecimais) {
   return `${horas}h ${String(minutos).padStart(2, '0')}min`
 }
 
+function formatarQuilometragem(valor) {
+  return Number(valor || 0).toLocaleString(
+    'pt-BR',
+    {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }
+  )
+}
+
+function obterInicioSemana(data) {
+  const inicio = new Date(
+    data.getFullYear(),
+    data.getMonth(),
+    data.getDate()
+  )
+
+  const diaDaSemana = inicio.getDay()
+
+  const diferencaParaSegunda =
+    diaDaSemana === 0
+      ? -6
+      : 1 - diaDaSemana
+
+  inicio.setDate(
+    inicio.getDate() +
+      diferencaParaSegunda
+  )
+
+  inicio.setHours(0, 0, 0, 0)
+
+  return inicio
+}
+
+function obterFimSemana(data) {
+  const fim = obterInicioSemana(data)
+
+  fim.setDate(fim.getDate() + 6)
+  fim.setHours(23, 59, 59, 999)
+
+  return fim
+}
+
+function formatarDiaMes(data) {
+  return data.toLocaleDateString(
+    'pt-BR',
+    {
+      day: '2-digit',
+      month: '2-digit',
+    }
+  )
+}
+
 function Dashboard({ jornadas }) {
   const [periodo, setPeriodo] =
     useState('tudo')
@@ -43,46 +100,35 @@ function Dashboard({ jornadas }) {
   const [dataEspecifica, setDataEspecifica] =
     useState(obterDataLocalAtual())
 
-  const jornadasFiltradas = jornadas.filter(
-    (jornada) => {
-      if (!jornada.data) {
+  const hoje = criarDataLocal(
+    obterDataLocalAtual()
+  )
+
+  const inicioSemanaAtual =
+    obterInicioSemana(hoje)
+
+  const fimSemanaAtual =
+    obterFimSemana(hoje)
+
+  const jornadasFiltradas =
+    jornadas.filter((jornada) => {
+      const data =
+        criarDataLocal(jornada.data)
+
+      if (!data) {
         return false
       }
 
-      const data = criarDataLocal(jornada.data)
-      const hoje = criarDataLocal(
-        obterDataLocalAtual()
-      )
-
       if (periodo === 'data') {
-        return jornada.data === dataEspecifica
+        return (
+          jornada.data === dataEspecifica
+        )
       }
 
       if (periodo === 'semana') {
-        const inicioHoje = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          hoje.getDate()
-        )
-
-        const inicioJornada = new Date(
-          data.getFullYear(),
-          data.getMonth(),
-          data.getDate()
-        )
-
-        const diferencaMs =
-          inicioHoje.getTime() -
-          inicioJornada.getTime()
-
-        const diferencaDias = Math.floor(
-          diferencaMs /
-            (1000 * 60 * 60 * 24)
-        )
-
         return (
-          diferencaDias >= 0 &&
-          diferencaDias <= 6
+          data >= inicioSemanaAtual &&
+          data <= fimSemanaAtual
         )
       }
 
@@ -103,8 +149,7 @@ function Dashboard({ jornadas }) {
       }
 
       return true
-    }
-  )
+    })
 
   let receitaTotal = 0
   let totalCorridas = 0
@@ -114,50 +159,62 @@ function Dashboard({ jornadas }) {
   let quantidadeConsumosValidos = 0
   let custoCombustivel = 0
 
-  jornadasFiltradas.forEach((jornada) => {
-    const uberReceita =
-      Number(jornada.uberReceita) || 0
+  jornadasFiltradas.forEach(
+    (jornada) => {
+      const uberReceita =
+        Number(jornada.uberReceita) || 0
 
-    const noventa9Receita =
-      Number(jornada.noventa9Receita) || 0
+      const noventa9Receita =
+        Number(jornada.noventa9Receita) ||
+        0
 
-    const uberCorridas =
-      Number(jornada.uberCorridas) || 0
+      const uberCorridas =
+        Number(jornada.uberCorridas) || 0
 
-    const noventa9Corridas =
-      Number(jornada.noventa9Corridas) || 0
+      const noventa9Corridas =
+        Number(jornada.noventa9Corridas) ||
+        0
 
-    const horas = Number(jornada.horas) || 0
-    const km = Number(jornada.km) || 0
-    const consumo =
-      Number(jornada.consumo) || 0
+      const horas =
+        Number(jornada.horas) || 0
 
-    const precoCombustivel =
-      Number(jornada.precoCombustivel) ||
-      Number(
-        localStorage.getItem(
-          'thoruberbh-combustivel'
-        ) || 6
-      )
+      const km =
+        Number(jornada.km) || 0
 
-    receitaTotal +=
-      uberReceita + noventa9Receita
+      const consumo =
+        Number(jornada.consumo) || 0
 
-    totalCorridas +=
-      uberCorridas + noventa9Corridas
+      const precoCombustivel =
+        Number(
+          jornada.precoCombustivel
+        ) ||
+        Number(
+          localStorage.getItem(
+            'thoruberbh-combustivel'
+          ) || 6
+        )
 
-    totalHoras += horas
-    totalKm += km
+      receitaTotal +=
+        uberReceita +
+        noventa9Receita
 
-    if (consumo > 0) {
-      totalConsumo += consumo
-      quantidadeConsumosValidos += 1
+      totalCorridas +=
+        uberCorridas +
+        noventa9Corridas
 
-      custoCombustivel +=
-        (km / consumo) *
-        precoCombustivel
+      totalHoras += horas
+      totalKm += km
+
+      if (consumo > 0) {
+        totalConsumo += consumo
+        quantidadeConsumosValidos += 1
+
+        custoCombustivel +=
+          (km / consumo) *
+          precoCombustivel
+      }
     }
-  })
+  )
 
   const reaisPorHora =
     totalHoras > 0
@@ -183,21 +240,157 @@ function Dashboard({ jornadas }) {
     custoCombustivel -
     reservaManutencao
 
+  function obterGrupoGrafico(jornada) {
+    const data =
+      criarDataLocal(jornada.data)
+
+    const ano = data.getFullYear()
+    const mes = data.getMonth()
+    const dia = data.getDate()
+
+    if (
+      periodo === 'data' ||
+      periodo === 'semana'
+    ) {
+      return {
+        chave: jornada.data,
+        ordem: data.getTime(),
+        rotulo: formatarDiaMes(data),
+      }
+    }
+
+    if (periodo === 'mes') {
+      const numeroSemana =
+        Math.floor((dia - 1) / 7) + 1
+
+      const primeiroDia =
+        (numeroSemana - 1) * 7 + 1
+
+      const ultimoDia = Math.min(
+        numeroSemana * 7,
+        new Date(
+          ano,
+          mes + 1,
+          0
+        ).getDate()
+      )
+
+      const mesFormatado = String(
+        mes + 1
+      ).padStart(2, '0')
+
+      return {
+        chave:
+          `${ano}-${mesFormatado}-semana-${numeroSemana}`,
+
+        ordem:
+          ano * 10000 +
+          (mes + 1) * 100 +
+          primeiroDia,
+
+        rotulo:
+          `${String(primeiroDia).padStart(2, '0')}/${mesFormatado}` +
+          ` a ${String(ultimoDia).padStart(2, '0')}/${mesFormatado}`,
+      }
+    }
+
+    if (periodo === 'ano') {
+      const numeroBimestre =
+        Math.floor(mes / 2) + 1
+
+      const nomesBimestres = [
+        'Jan/Fev',
+        'Mar/Abr',
+        'Mai/Jun',
+        'Jul/Ago',
+        'Set/Out',
+        'Nov/Dez',
+      ]
+
+      return {
+        chave:
+          `${ano}-bimestre-${numeroBimestre}`,
+
+        ordem:
+          ano * 10 +
+          numeroBimestre,
+
+        rotulo:
+          nomesBimestres[
+            numeroBimestre - 1
+          ],
+      }
+    }
+
+    return {
+      chave: String(ano),
+      ordem: ano,
+      rotulo: String(ano),
+    }
+  }
+
+  const gruposGrafico = {}
+
+  jornadasFiltradas.forEach(
+    (jornada) => {
+      const grupo =
+        obterGrupoGrafico(jornada)
+
+      if (!gruposGrafico[grupo.chave]) {
+        gruposGrafico[grupo.chave] = {
+          chave: grupo.chave,
+          ordem: grupo.ordem,
+          rotulo: grupo.rotulo,
+          uberReceita: 0,
+          noventa9Receita: 0,
+        }
+      }
+
+      gruposGrafico[
+        grupo.chave
+      ].uberReceita +=
+        Number(jornada.uberReceita) || 0
+
+      gruposGrafico[
+        grupo.chave
+      ].noventa9Receita +=
+        Number(
+          jornada.noventa9Receita
+        ) || 0
+    }
+  )
+
+  let dadosGrafico = Object.values(
+    gruposGrafico
+  ).sort(
+    (primeiro, segundo) =>
+      primeiro.ordem - segundo.ordem
+  )
+
+  if (dadosGrafico.length > 7) {
+    dadosGrafico =
+      dadosGrafico.slice(-7)
+  }
+
   const receitaMaxima =
-    jornadasFiltradas.length > 0
+    dadosGrafico.length > 0
       ? Math.max(
-          ...jornadasFiltradas.map(
-            (jornada) =>
-              (Number(
-                jornada.uberReceita
-              ) || 0) +
-              (Number(
-                jornada.noventa9Receita
-              ) || 0)
+          ...dadosGrafico.map(
+            (grupo) =>
+              grupo.uberReceita +
+              grupo.noventa9Receita
           ),
           1
         )
       : 1
+
+  const tituloGrafico = {
+    data: 'Receita da Data',
+    semana: 'Receita por Dia',
+    mes: 'Receita por Semana',
+    ano: 'Receita por Bimestre',
+    tudo: 'Receita por Ano',
+  }[periodo]
 
   return (
     <div>
@@ -217,7 +410,7 @@ function Dashboard({ jornadas }) {
           </option>
 
           <option value="semana">
-            Últimos 7 dias
+            Semana atual
           </option>
 
           <option value="mes">
@@ -225,7 +418,7 @@ function Dashboard({ jornadas }) {
           </option>
 
           <option value="ano">
-            Ano atual
+            Ano
           </option>
 
           <option value="tudo">
@@ -302,6 +495,24 @@ function Dashboard({ jornadas }) {
         </div>
 
         <div className="card">
+          <h3>Horas</h3>
+
+          <div className="kpi-value">
+            {formatarTempo(totalHoras)}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>KM Rodados</h3>
+
+          <div className="kpi-value">
+            {formatarQuilometragem(
+              totalKm
+            )} km
+          </div>
+        </div>
+
+        <div className="card">
           <h3>⛽ Combustível</h3>
 
           <div className="kpi-value">
@@ -316,10 +527,10 @@ function Dashboard({ jornadas }) {
         </div>
 
         <div className="card">
-          <h3>Horas</h3>
+          <h3>Consumo Médio</h3>
 
           <div className="kpi-value">
-            {formatarTempo(totalHoras)}
+            {consumoMedio.toFixed(1)} km/l
           </div>
         </div>
 
@@ -350,177 +561,143 @@ function Dashboard({ jornadas }) {
             )}
           </div>
         </div>
-
-        <div className="card">
-          <h3>Consumo Médio</h3>
-
-          <div className="kpi-value">
-            {consumoMedio.toFixed(1)} km/l
-          </div>
-        </div>
       </div>
 
       <div
         className="card"
         style={{ marginTop: '20px' }}
       >
-        <h3>📈 Receita por Dia</h3>
+        <h3>
+          📈 {tituloGrafico}
+        </h3>
 
-        {jornadasFiltradas.length === 0 && (
+        {dadosGrafico.length === 0 && (
           <p>
             Nenhuma jornada encontrada neste período.
           </p>
         )}
 
-        {jornadasFiltradas
-          .slice()
-          .sort((a, b) =>
-            a.data.localeCompare(b.data)
-          )
-          .map((jornada) => {
-            const uberReceita =
-              Number(
-                jornada.uberReceita
-              ) || 0
+        {dadosGrafico.map((grupo) => {
+          const receitaGrupo =
+            grupo.uberReceita +
+            grupo.noventa9Receita
 
-            const noventa9Receita =
-              Number(
-                jornada.noventa9Receita
-              ) || 0
+          const larguraTotal =
+            receitaGrupo > 0
+              ? (receitaGrupo /
+                  receitaMaxima) *
+                100
+              : 0
 
-            const receitaTotalDia =
-              uberReceita +
-              noventa9Receita
+          const proporcaoUber =
+            receitaGrupo > 0
+              ? (grupo.uberReceita /
+                  receitaGrupo) *
+                100
+              : 0
 
-            const largura =
-              receitaTotalDia > 0
-                ? (receitaTotalDia /
-                    receitaMaxima) *
-                  100
-                : 0
+          const proporcao99 =
+            receitaGrupo > 0
+              ? (grupo.noventa9Receita /
+                  receitaGrupo) *
+                100
+              : 0
 
-            const larguraUber =
-              receitaTotalDia > 0
-                ? (uberReceita /
-                    receitaTotalDia) *
-                  100
-                : 0
-
-            const largura99 =
-              receitaTotalDia > 0
-                ? (noventa9Receita /
-                    receitaTotalDia) *
-                  100
-                : 0
-
-            const dataFormatada =
-              criarDataLocal(
-                jornada.data
-              ).toLocaleDateString(
-                'pt-BR',
-                {
-                  day: '2-digit',
-                  month: '2-digit',
-                }
-              )
-
-            return (
+          return (
+            <div
+              key={grupo.chave}
+              style={{
+                marginBottom: '20px',
+              }}
+            >
               <div
-                key={jornada.id}
                 style={{
-                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent:
+                    'space-between',
+                  gap: '12px',
+                  marginBottom: '6px',
+                }}
+              >
+                <strong>
+                  {grupo.rotulo}
+                </strong>
+
+                <strong>
+                  {receitaGrupo.toLocaleString(
+                    'pt-BR',
+                    {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }
+                  )}
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  width: `${larguraTotal}%`,
+                  minWidth:
+                    receitaGrupo > 0
+                      ? '4px'
+                      : '0',
+                  height: '22px',
+                  display: 'flex',
+                  overflow: 'hidden',
+                  borderRadius: '10px',
+                  background: '#e5e7eb',
                 }}
               >
                 <div
                   style={{
-                    display: 'flex',
-                    justifyContent:
-                      'space-between',
-                    marginBottom: '6px',
+                    width: `${proporcaoUber}%`,
+                    background: '#2563eb',
                   }}
-                >
-                  <strong>
-                    {dataFormatada}
-                  </strong>
-
-                  <strong>
-                    {receitaTotalDia.toLocaleString(
-                      'pt-BR',
-                      {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }
-                    )}
-                  </strong>
-                </div>
+                />
 
                 <div
                   style={{
-                    width: `${largura}%`,
-                    minWidth:
-                      receitaTotalDia > 0
-                        ? '4px'
-                        : '0',
-                    height: '22px',
-                    display: 'flex',
-                    overflow: 'hidden',
-                    borderRadius: '10px',
-                    background:
-                      '#e5e7eb',
+                    width: `${proporcao99}%`,
+                    background: '#22c55e',
                   }}
-                >
-                  <div
-                    style={{
-                      width: `${larguraUber}%`,
-                      background:
-                        '#2563eb',
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      width: `${largura99}%`,
-                      background:
-                        '#22c55e',
-                    }}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent:
-                      'space-between',
-                    gap: '10px',
-                    marginTop: '6px',
-                    fontSize: '12px',
-                  }}
-                >
-                  <span>
-                    🟦 Uber:{' '}
-                    {uberReceita.toLocaleString(
-                      'pt-BR',
-                      {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }
-                    )}
-                  </span>
-
-                  <span>
-                    🟩 99:{' '}
-                    {noventa9Receita.toLocaleString(
-                      'pt-BR',
-                      {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }
-                    )}
-                  </span>
-                </div>
+                />
               </div>
-            )
-          })}
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent:
+                    'space-between',
+                  gap: '10px',
+                  marginTop: '6px',
+                  fontSize: '12px',
+                }}
+              >
+                <span>
+                  🟦 Uber:{' '}
+                  {grupo.uberReceita.toLocaleString(
+                    'pt-BR',
+                    {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }
+                  )}
+                </span>
+
+                <span>
+                  🟩 99:{' '}
+                  {grupo.noventa9Receita.toLocaleString(
+                    'pt-BR',
+                    {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }
+                  )}
+                </span>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <p>
