@@ -1,17 +1,15 @@
 import { useState } from 'react'
 
-const MILISSEGUNDOS_POR_DIA = 1000 * 60 * 60 * 24
-
-function obterDataLocalAtual() {
-  const agora = new Date()
-  const ano = agora.getFullYear()
-  const mes = String(agora.getMonth() + 1).padStart(2, '0')
-  const dia = String(agora.getDate()).padStart(2, '0')
+function obterDataAtual() {
+  const hoje = new Date()
+  const ano = hoje.getFullYear()
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0')
+  const dia = String(hoje.getDate()).padStart(2, '0')
 
   return `${ano}-${mes}-${dia}`
 }
 
-function criarDataLocal(dataTexto) {
+function criarData(dataTexto) {
   if (!dataTexto) {
     return null
   }
@@ -25,6 +23,13 @@ function criarDataLocal(dataTexto) {
   return new Date(ano, mes - 1, dia)
 }
 
+function formatarData(data) {
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+  })
+}
+
 function formatarMoeda(valor) {
   return Number(valor || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -33,24 +38,20 @@ function formatarMoeda(valor) {
 }
 
 function formatarTempo(horasDecimais) {
-  const minutosTotais = Math.round((Number(horasDecimais) || 0) * 60)
+  const minutosTotais = Math.round(
+    (Number(horasDecimais) || 0) * 60
+  )
+
   const horas = Math.floor(minutosTotais / 60)
   const minutos = minutosTotais % 60
 
   return `${horas}h ${String(minutos).padStart(2, '0')}min`
 }
 
-function formatarQuilometragem(valor) {
+function formatarKm(valor) {
   return Number(valor || 0).toLocaleString('pt-BR', {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
-  })
-}
-
-function formatarDiaMes(data) {
-  return data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
   })
 }
 
@@ -61,10 +62,10 @@ function obterInicioSemana(data) {
     data.getDate()
   )
 
-  const diaDaSemana = inicio.getDay()
-  const diferencaParaSegunda = diaDaSemana === 0 ? -6 : 1 - diaDaSemana
+  const diaSemana = inicio.getDay()
+  const ajuste = diaSemana === 0 ? -6 : 1 - diaSemana
 
-  inicio.setDate(inicio.getDate() + diferencaParaSegunda)
+  inicio.setDate(inicio.getDate() + ajuste)
   inicio.setHours(0, 0, 0, 0)
 
   return inicio
@@ -79,73 +80,90 @@ function obterFimSemana(data) {
   return fim
 }
 
-function obterSemanaDentroDoMes(data) {
+function obterSemanaDoMes(data) {
   const ano = data.getFullYear()
   const mes = data.getMonth()
-  const primeiroDiaDoMes = new Date(ano, mes, 1)
-  const ultimoDiaDoMes = new Date(ano, mes + 1, 0)
-  const inicioPrimeiraSemana = obterInicioSemana(primeiroDiaDoMes)
-  const inicioSemanaDaData = obterInicioSemana(data)
-  const fimSemanaDaData = obterFimSemana(data)
 
-  const diferencaEmDias = Math.round(
-    (inicioSemanaDaData.getTime() - inicioPrimeiraSemana.getTime()) /
-      MILISSEGUNDOS_POR_DIA
+  const primeiroDiaMes = new Date(ano, mes, 1)
+  const ultimoDiaMes = new Date(ano, mes + 1, 0)
+
+  const inicioPrimeiraSemana = obterInicioSemana(
+    primeiroDiaMes
   )
 
-  const numeroSemana = Math.floor(diferencaEmDias / 7) + 1
+  const inicioSemana = obterInicioSemana(data)
+  const fimSemana = obterFimSemana(data)
 
-  const inicioPeriodo =
-    inicioSemanaDaData < primeiroDiaDoMes
-      ? primeiroDiaDoMes
-      : inicioSemanaDaData
+  const diferencaDias = Math.round(
+    (inicioSemana.getTime() -
+      inicioPrimeiraSemana.getTime()) /
+      (1000 * 60 * 60 * 24)
+  )
 
-  const fimPeriodo =
-    fimSemanaDaData > ultimoDiaDoMes
-      ? ultimoDiaDoMes
-      : fimSemanaDaData
+  const numero = Math.floor(diferencaDias / 7) + 1
 
   return {
-    numeroSemana,
-    inicioPeriodo,
-    fimPeriodo,
+    numero,
+    inicio:
+      inicioSemana < primeiroDiaMes
+        ? primeiroDiaMes
+        : inicioSemana,
+    fim:
+      fimSemana > ultimoDiaMes
+        ? ultimoDiaMes
+        : fimSemana,
   }
 }
 
 function Dashboard({ jornadas }) {
-  const [periodo, setPeriodo] = useState('tudo')
-  const [dataEspecifica, setDataEspecifica] = useState(
-    obterDataLocalAtual()
-  )
+  const hojeTexto = obterDataAtual()
+  const hoje = criarData(hojeTexto)
 
-  const hoje = criarDataLocal(obterDataLocalAtual())
+  const [filtro, setFiltro] = useState('total')
+  const [dataEspecifica, setDataEspecifica] =
+    useState(hojeTexto)
+  const [dataInicial, setDataInicial] =
+    useState(hojeTexto)
+  const [dataFinal, setDataFinal] =
+    useState(hojeTexto)
+
   const inicioSemanaAtual = obterInicioSemana(hoje)
   const fimSemanaAtual = obterFimSemana(hoje)
 
   const jornadasFiltradas = jornadas.filter((jornada) => {
-    const data = criarDataLocal(jornada.data)
+    const data = criarData(jornada.data)
 
     if (!data) {
       return false
     }
 
-    if (periodo === 'data') {
+    if (filtro === 'data') {
       return jornada.data === dataEspecifica
     }
 
-    if (periodo === 'semana') {
-      return data >= inicioSemanaAtual && data <= fimSemanaAtual
+    if (filtro === 'periodo') {
+      if (!dataInicial || !dataFinal) {
+        return false
+      }
+
+      const inicio = criarData(dataInicial)
+      const fim = criarData(dataFinal)
+
+      return data >= inicio && data <= fim
     }
 
-    if (periodo === 'mes') {
+    if (filtro === 'semana') {
+      return (
+        data >= inicioSemanaAtual &&
+        data <= fimSemanaAtual
+      )
+    }
+
+    if (filtro === 'mes') {
       return (
         data.getMonth() === hoje.getMonth() &&
         data.getFullYear() === hoje.getFullYear()
       )
-    }
-
-    if (periodo === 'ano') {
-      return data.getFullYear() === hoje.getFullYear()
     }
 
     return true
@@ -158,86 +176,120 @@ function Dashboard({ jornadas }) {
   let somaConsumo = 0
   let quantidadeConsumos = 0
   let custoCombustivel = 0
+  let reservaManutencao = 0
 
   jornadasFiltradas.forEach((jornada) => {
-    const uberReceita = Number(jornada.uberReceita) || 0
-    const noventa9Receita = Number(jornada.noventa9Receita) || 0
-    const uberCorridas = Number(jornada.uberCorridas) || 0
-    const noventa9Corridas = Number(jornada.noventa9Corridas) || 0
-    const horas = Number(jornada.horas) || 0
-    const km = Number(jornada.km) || 0
-    const consumo = Number(jornada.consumo) || 0
+    const uberReceita =
+      Number(jornada.uberReceita) || 0
+
+    const receita99 =
+      Number(jornada.noventa9Receita) || 0
+
+    const receitaJornada =
+      uberReceita + receita99
+
+    const uberCorridas =
+      Number(jornada.uberCorridas) || 0
+
+    const corridas99 =
+      Number(jornada.noventa9Corridas) || 0
+
+    const horas =
+      Number(jornada.horas) || 0
+
+    const km =
+      Number(jornada.km) || 0
+
+    const consumo =
+      Number(jornada.consumo) || 0
+
     const precoCombustivel =
       Number(jornada.precoCombustivel) ||
-      Number(localStorage.getItem('thoruberbh-combustivel') || 6)
+      Number(
+        localStorage.getItem(
+          'thoruberbh-combustivel'
+        ) || 6
+      )
 
-    receitaTotal += uberReceita + noventa9Receita
-    totalCorridas += uberCorridas + noventa9Corridas
+    const percentualManutencao =
+      jornada.percentualManutencao !== undefined
+        ? Number(jornada.percentualManutencao)
+        : 10
+
+    receitaTotal += receitaJornada
+    totalCorridas += uberCorridas + corridas99
     totalHoras += horas
     totalKm += km
+
+    reservaManutencao +=
+      receitaJornada *
+      (percentualManutencao / 100)
 
     if (consumo > 0) {
       somaConsumo += consumo
       quantidadeConsumos += 1
-      custoCombustivel += (km / consumo) * precoCombustivel
+
+      custoCombustivel +=
+        (km / consumo) * precoCombustivel
     }
   })
 
-  const reaisPorHora = totalHoras > 0 ? receitaTotal / totalHoras : 0
-  const reaisPorKm = totalKm > 0 ? receitaTotal / totalKm : 0
+  const reaisPorHora =
+    totalHoras > 0
+      ? receitaTotal / totalHoras
+      : 0
+
+  const reaisPorKm =
+    totalKm > 0
+      ? receitaTotal / totalKm
+      : 0
+
   const consumoMedio =
-    quantidadeConsumos > 0 ? somaConsumo / quantidadeConsumos : 0
-  const reservaManutencao = receitaTotal * 0.1
-  const lucroEstimado = receitaTotal - custoCombustivel - reservaManutencao
+    quantidadeConsumos > 0
+      ? somaConsumo / quantidadeConsumos
+      : 0
+
+  const lucroEstimado =
+    receitaTotal -
+    custoCombustivel -
+    reservaManutencao
 
   function obterGrupoGrafico(jornada) {
-    const data = criarDataLocal(jornada.data)
+    const data = criarData(jornada.data)
 
     if (!data) {
       return null
     }
 
-    const ano = data.getFullYear()
-    const mes = data.getMonth()
-
-    if (periodo === 'data' || periodo === 'semana') {
+    if (
+      filtro === 'data' ||
+      filtro === 'periodo' ||
+      filtro === 'semana'
+    ) {
       return {
         chave: jornada.data,
         ordem: data.getTime(),
-        rotulo: formatarDiaMes(data),
+        rotulo: formatarData(data),
       }
     }
 
-    if (periodo === 'mes') {
-      const semana = obterSemanaDentroDoMes(data)
+    if (filtro === 'mes') {
+      const semana = obterSemanaDoMes(data)
 
       return {
-        chave: `${ano}-${mes + 1}-semana-${semana.numeroSemana}`,
-        ordem: semana.inicioPeriodo.getTime(),
+        chave:
+          `${data.getFullYear()}-` +
+          `${data.getMonth()}-` +
+          `${semana.numero}`,
+        ordem: semana.inicio.getTime(),
         rotulo:
-          `Semana ${semana.numeroSemana}: ` +
-          `${formatarDiaMes(semana.inicioPeriodo)} a ` +
-          `${formatarDiaMes(semana.fimPeriodo)}`,
+          `Semana ${semana.numero}: ` +
+          `${formatarData(semana.inicio)} a ` +
+          `${formatarData(semana.fim)}`,
       }
     }
 
-    if (periodo === 'ano') {
-      const numeroBimestre = Math.floor(mes / 2) + 1
-      const nomesBimestres = [
-        'Jan/Fev',
-        'Mar/Abr',
-        'Mai/Jun',
-        'Jul/Ago',
-        'Set/Out',
-        'Nov/Dez',
-      ]
-
-      return {
-        chave: `${ano}-bimestre-${numeroBimestre}`,
-        ordem: ano * 10 + numeroBimestre,
-        rotulo: nomesBimestres[numeroBimestre - 1],
-      }
-    }
+    const ano = data.getFullYear()
 
     return {
       chave: String(ano),
@@ -246,7 +298,7 @@ function Dashboard({ jornadas }) {
     }
   }
 
-  const gruposGrafico = {}
+  const grupos = {}
 
   jornadasFiltradas.forEach((jornada) => {
     const grupo = obterGrupoGrafico(jornada)
@@ -255,28 +307,36 @@ function Dashboard({ jornadas }) {
       return
     }
 
-    if (!gruposGrafico[grupo.chave]) {
-      gruposGrafico[grupo.chave] = {
-        chave: grupo.chave,
-        ordem: grupo.ordem,
-        rotulo: grupo.rotulo,
-        uberReceita: 0,
-        noventa9Receita: 0,
+    if (!grupos[grupo.chave]) {
+      grupos[grupo.chave] = {
+        ...grupo,
+        uber: 0,
+        noventa9: 0,
       }
     }
 
-    gruposGrafico[grupo.chave].uberReceita +=
+    grupos[grupo.chave].uber +=
       Number(jornada.uberReceita) || 0
 
-    gruposGrafico[grupo.chave].noventa9Receita +=
+    grupos[grupo.chave].noventa9 +=
       Number(jornada.noventa9Receita) || 0
   })
 
-  let dadosGrafico = Object.values(gruposGrafico).sort(
-    (primeiro, segundo) => primeiro.ordem - segundo.ordem
+  let dadosGrafico = Object.values(grupos).sort(
+    (a, b) => a.ordem - b.ordem
   )
 
-  if (periodo === 'tudo' && dadosGrafico.length > 7) {
+  if (
+    filtro === 'periodo' &&
+    dadosGrafico.length > 7
+  ) {
+    dadosGrafico = dadosGrafico.slice(-7)
+  }
+
+  if (
+    filtro === 'total' &&
+    dadosGrafico.length > 7
+  ) {
     dadosGrafico = dadosGrafico.slice(-7)
   }
 
@@ -284,7 +344,9 @@ function Dashboard({ jornadas }) {
     dadosGrafico.length > 0
       ? Math.max(
           ...dadosGrafico.map(
-            (grupo) => grupo.uberReceita + grupo.noventa9Receita
+            (grupo) =>
+              grupo.uber +
+              grupo.noventa9
           ),
           1
         )
@@ -292,11 +354,11 @@ function Dashboard({ jornadas }) {
 
   const tituloGrafico = {
     data: 'Receita da Data',
-    semana: 'Receita por Dia',
+    periodo: 'Receita por Dia',
+    semana: 'Receita da Semana',
     mes: 'Receita por Semana',
-    ano: 'Receita por Bimestre',
-    tudo: 'Receita por Ano',
-  }[periodo]
+    total: 'Receita Total',
+  }[filtro]
 
   return (
     <div>
@@ -306,24 +368,72 @@ function Dashboard({ jornadas }) {
         <label>Período</label>
 
         <select
-          value={periodo}
-          onChange={(e) => setPeriodo(e.target.value)}
+          value={filtro}
+          onChange={(e) =>
+            setFiltro(e.target.value)
+          }
         >
-          <option value="data">Data específica</option>
-          <option value="semana">Semana atual</option>
-          <option value="mes">Mês atual</option>
-          <option value="ano">Ano</option>
-          <option value="tudo">Tudo</option>
+          <option value="data">
+            Data
+          </option>
+
+          <option value="periodo">
+            Período
+          </option>
+
+          <option value="semana">
+            Semana atual
+          </option>
+
+          <option value="mes">
+            Mês atual
+          </option>
+
+          <option value="total">
+            Total
+          </option>
         </select>
 
-        {periodo === 'data' && (
+        {filtro === 'data' && (
           <>
             <label>Escolha a data</label>
 
             <input
               type="date"
               value={dataEspecifica}
-              onChange={(e) => setDataEspecifica(e.target.value)}
+              onChange={(e) =>
+                setDataEspecifica(
+                  e.target.value
+                )
+              }
+            />
+          </>
+        )}
+
+        {filtro === 'periodo' && (
+          <>
+            <label>Data inicial</label>
+
+            <input
+              type="date"
+              value={dataInicial}
+              onChange={(e) =>
+                setDataInicial(
+                  e.target.value
+                )
+              }
+            />
+
+            <label>Data final</label>
+
+            <input
+              type="date"
+              value={dataFinal}
+              onChange={(e) =>
+                setDataFinal(
+                  e.target.value
+                )
+              }
             />
           </>
         )}
@@ -332,109 +442,153 @@ function Dashboard({ jornadas }) {
       <div className="cards">
         <div className="card">
           <h3>Receita</h3>
-          <div className="kpi-value">{formatarMoeda(receitaTotal)}</div>
+          <div className="kpi-value">
+            {formatarMoeda(receitaTotal)}
+          </div>
         </div>
 
         <div className="card">
           <h3>Corridas</h3>
-          <div className="kpi-value">{totalCorridas}</div>
+          <div className="kpi-value">
+            {totalCorridas}
+          </div>
         </div>
 
         <div className="card">
           <h3>R$/Hora</h3>
-          <div className="kpi-value">{formatarMoeda(reaisPorHora)}</div>
+          <div className="kpi-value">
+            {formatarMoeda(reaisPorHora)}
+          </div>
         </div>
 
         <div className="card">
           <h3>R$/KM</h3>
-          <div className="kpi-value">{formatarMoeda(reaisPorKm)}</div>
+          <div className="kpi-value">
+            {formatarMoeda(reaisPorKm)}
+          </div>
         </div>
 
         <div className="card">
           <h3>Horas</h3>
-          <div className="kpi-value">{formatarTempo(totalHoras)}</div>
+          <div className="kpi-value">
+            {formatarTempo(totalHoras)}
+          </div>
         </div>
 
         <div className="card">
           <h3>KM Rodados</h3>
           <div className="kpi-value">
-            {formatarQuilometragem(totalKm)} km
+            {formatarKm(totalKm)} km
           </div>
         </div>
 
         <div className="card">
           <h3>⛽ Combustível</h3>
           <div className="kpi-value">
-            {formatarMoeda(custoCombustivel)}
+            {formatarMoeda(
+              custoCombustivel
+            )}
           </div>
         </div>
 
         <div className="card">
           <h3>Consumo Médio</h3>
-          <div className="kpi-value">{consumoMedio.toFixed(1)} km/l</div>
+          <div className="kpi-value">
+            {consumoMedio.toFixed(1)} km/l
+          </div>
         </div>
 
         <div className="card">
           <h3>Lucro Estimado</h3>
-          <div className="kpi-value">{formatarMoeda(lucroEstimado)}</div>
+          <div className="kpi-value">
+            {formatarMoeda(
+              lucroEstimado
+            )}
+          </div>
         </div>
 
         <div className="card">
           <h3>🔧 Reserva</h3>
           <div className="kpi-value">
-            {formatarMoeda(reservaManutencao)}
+            {formatarMoeda(
+              reservaManutencao
+            )}
           </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: '20px' }}>
+      <div
+        className="card"
+        style={{ marginTop: '20px' }}
+      >
         <h3>📈 {tituloGrafico}</h3>
 
         {dadosGrafico.length === 0 && (
-          <p>Nenhuma jornada encontrada neste período.</p>
+          <p>
+            Nenhuma jornada encontrada neste período.
+          </p>
         )}
 
         {dadosGrafico.map((grupo) => {
-          const receitaGrupo =
-            grupo.uberReceita + grupo.noventa9Receita
+          const receita =
+            grupo.uber +
+            grupo.noventa9
 
-          const larguraTotal =
-            receitaGrupo > 0
-              ? (receitaGrupo / receitaMaxima) * 100
+          const largura =
+            receita > 0
+              ? (receita /
+                  receitaMaxima) *
+                100
               : 0
 
-          const proporcaoUber =
-            receitaGrupo > 0
-              ? (grupo.uberReceita / receitaGrupo) * 100
+          const parteUber =
+            receita > 0
+              ? (grupo.uber /
+                  receita) *
+                100
               : 0
 
-          const proporcao99 =
-            receitaGrupo > 0
-              ? (grupo.noventa9Receita / receitaGrupo) * 100
+          const parte99 =
+            receita > 0
+              ? (grupo.noventa9 /
+                  receita) *
+                100
               : 0
 
           return (
             <div
               key={grupo.chave}
-              style={{ marginBottom: '20px' }}
+              style={{
+                marginBottom: '20px',
+              }}
             >
               <div
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
+                  justifyContent:
+                    'space-between',
                   gap: '12px',
                   marginBottom: '6px',
                 }}
               >
-                <strong>{grupo.rotulo}</strong>
-                <strong>{formatarMoeda(receitaGrupo)}</strong>
+                <strong>
+                  {grupo.rotulo}
+                </strong>
+
+                <strong>
+                  {formatarMoeda(
+                    receita
+                  )}
+                </strong>
               </div>
 
               <div
                 style={{
-                  width: `${larguraTotal}%`,
-                  minWidth: receitaGrupo > 0 ? '4px' : '0',
+                  width: `${largura}%`,
+                  minWidth:
+                    receita > 0
+                      ? '4px'
+                      : '0',
                   height: '22px',
                   display: 'flex',
                   overflow: 'hidden',
@@ -444,14 +598,14 @@ function Dashboard({ jornadas }) {
               >
                 <div
                   style={{
-                    width: `${proporcaoUber}%`,
+                    width: `${parteUber}%`,
                     background: '#2563eb',
                   }}
                 />
 
                 <div
                   style={{
-                    width: `${proporcao99}%`,
+                    width: `${parte99}%`,
                     background: '#22c55e',
                   }}
                 />
@@ -460,21 +614,35 @@ function Dashboard({ jornadas }) {
               <div
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
+                  justifyContent:
+                    'space-between',
                   gap: '10px',
                   marginTop: '6px',
                   fontSize: '12px',
                 }}
               >
-                <span>🟦 Uber: {formatarMoeda(grupo.uberReceita)}</span>
-                <span>🟩 99: {formatarMoeda(grupo.noventa9Receita)}</span>
+                <span>
+                  🟦 Uber:{' '}
+                  {formatarMoeda(
+                    grupo.uber
+                  )}
+                </span>
+
+                <span>
+                  🟩 99:{' '}
+                  {formatarMoeda(
+                    grupo.noventa9
+                  )}
+                </span>
               </div>
             </div>
           )
         })}
       </div>
 
-      <p>{jornadasFiltradas.length} jornada(s)</p>
+      <p>
+        {jornadasFiltradas.length} jornada(s)
+      </p>
     </div>
   )
 }

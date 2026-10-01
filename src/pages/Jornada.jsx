@@ -4,9 +4,11 @@ function obterDataLocalAtual() {
   const agora = new Date()
 
   const ano = agora.getFullYear()
+
   const mes = String(
     agora.getMonth() + 1
   ).padStart(2, '0')
+
   const dia = String(
     agora.getDate()
   ).padStart(2, '0')
@@ -21,17 +23,36 @@ function Jornada({
   const hoje = obterDataLocalAtual()
 
   const [data, setData] = useState(hoje)
-  const [uberCorridas, setUberCorridas] = useState('')
-  const [uberReceita, setUberReceita] = useState('')
-  const [noventa9Corridas, setNoventa9Corridas] =
-    useState('')
-  const [noventa9Receita, setNoventa9Receita] =
-    useState('')
+
+  const [
+    uberCorridas,
+    setUberCorridas,
+  ] = useState('')
+
+  const [
+    uberReceita,
+    setUberReceita,
+  ] = useState('')
+
+  const [
+    noventa9Corridas,
+    setNoventa9Corridas,
+  ] = useState('')
+
+  const [
+    noventa9Receita,
+    setNoventa9Receita,
+  ] = useState('')
+
   const [horas, setHoras] = useState('')
   const [minutos, setMinutos] = useState('')
   const [km, setKm] = useState('')
   const [consumo, setConsumo] = useState('')
-  const [observacao, setObservacao] = useState('')
+
+  const [
+    observacao,
+    setObservacao,
+  ] = useState('')
 
   function salvarJornada() {
     if (!data) {
@@ -39,11 +60,19 @@ function Jornada({
       return
     }
 
-    const horasInformadas = Number(horas) || 0
-    const minutosInformados = Number(minutos) || 0
+    const horasInformadas =
+      Number(horas) || 0
 
-    if (minutosInformados < 0 || minutosInformados > 59) {
-      alert('Os minutos devem estar entre 0 e 59.')
+    const minutosInformados =
+      Number(minutos) || 0
+
+    if (
+      minutosInformados < 0 ||
+      minutosInformados > 59
+    ) {
+      alert(
+        'Os minutos devem estar entre 0 e 59.'
+      )
       return
     }
 
@@ -57,19 +86,40 @@ function Jornada({
       ) || 6
     )
 
+    const percentualManutencao = Number(
+      localStorage.getItem(
+        'thoruberbh-manutencao'
+      ) || 10
+    )
+
     adicionarJornada({
       data,
-      uberCorridas: Number(uberCorridas) || 0,
-      uberReceita: Number(uberReceita) || 0,
+
+      uberCorridas:
+        Number(uberCorridas) || 0,
+
+      uberReceita:
+        Number(uberReceita) || 0,
+
       noventa9Corridas:
         Number(noventa9Corridas) || 0,
+
       noventa9Receita:
         Number(noventa9Receita) || 0,
+
       horas: tempoTotal,
-      km: Number(km) || 0,
-      consumo: Number(consumo) || 0,
+
+      km:
+        Number(km) || 0,
+
+      consumo:
+        Number(consumo) || 0,
+
       observacao,
+
       precoCombustivel,
+
+      percentualManutencao,
     })
 
     voltarDashboard()
@@ -102,7 +152,9 @@ function Jornada({
           inputMode="numeric"
           value={uberCorridas}
           onChange={(e) =>
-            setUberCorridas(e.target.value)
+            setUberCorridas(
+              e.target.value
+            )
           }
         />
 
@@ -115,7 +167,9 @@ function Jornada({
           inputMode="decimal"
           value={uberReceita}
           onChange={(e) =>
-            setUberReceita(e.target.value)
+            setUberReceita(
+              e.target.value
+            )
           }
         />
       </div>
@@ -154,7 +208,9 @@ function Jornada({
       </div>
 
       <div className="card">
-        <label>⏱ Tempo Trabalhado</label>
+        <label>
+          ⏱ Tempo Trabalhado
+        </label>
 
         <div className="tempo-grid">
           <div>
@@ -187,7 +243,9 @@ function Jornada({
               placeholder="0"
               value={minutos}
               onChange={(e) =>
-                setMinutos(e.target.value)
+                setMinutos(
+                  e.target.value
+                )
               }
             />
           </div>
@@ -206,7 +264,9 @@ function Jornada({
           }
         />
 
-        <label>⛽ Consumo Médio</label>
+        <label>
+          ⛽ Consumo Médio
+        </label>
 
         <input
           type="number"
@@ -227,7 +287,9 @@ function Jornada({
           rows="4"
           value={observacao}
           onChange={(e) =>
-            setObservacao(e.target.value)
+            setObservacao(
+              e.target.value
+            )
           }
         />
       </div>
